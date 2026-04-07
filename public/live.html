@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Game | The Drip</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F4F4F2;--surface:#FFFFFF;--surface-warm:#FAFAF8;--text-primary:#111110;--text-secondary:#4A4A46;--text-tertiary:#73736D;--border:#E5E5DF;--success:#10B981;--success-bg:rgba(16,185,129,0.1);--danger:#ef4444;--scoreboard-bg:linear-gradient(180deg,#1A1C23 0%,#111216 100%);--scoreboard-text:#F4F4F2;--scoreboard-dim:#A1A19D;--live-pulse:#ef4444;--mono:'JetBrains Mono',monospace;--serif:'Source Serif 4',serif;--sans:'DM Sans',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--bg);color:var(--text-primary);-webkit-font-smoothing:antialiased;line-height:1.6}
+header{position:sticky;top:0;z-index:100;background:rgba(244,244,242,0.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-bar{max-width:940px;margin:0 auto;padding:12px 20px;display:flex;justify-content:space-between;align-items:center}
+.back-link{font-family:var(--sans);font-size:.8125rem;font-weight:600;color:var(--text-tertiary);text-decoration:none;display:flex;align-items:center;gap:4px;transition:color .2s}
+.back-link:hover{color:var(--text-primary)}
+.wordmark{font-family:var(--serif);font-weight:700;font-size:1.125rem;color:var(--text-primary);text-decoration:none}
+.scoreboard{max-width:940px;margin:20px auto 0;padding:0 20px}
+.scoreboard-card{background:var(--scoreboard-bg);border-radius:16px;overflow:hidden;position:relative;box-shadow:0 12px 32px rgba(0,0,0,0.15);border:1px solid rgba(255,255,255,0.08)}
+.sb-identity{padding:14px 32px 0;position:relative;z-index:1;font-family:var(--mono);font-size:.625rem;font-weight:600;color:var(--scoreboard-dim);letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.sb-main{padding:20px 32px 16px;display:flex;align-items:center;justify-content:center;gap:40px;position:relative;z-index:1}
+.sb-team{display:flex;align-items:center;gap:14px;min-width:180px}
+.sb-team.away{justify-content:flex-end}
+.sb-logo{width:56px;height:56px;border-radius:50%;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,0.2)}
+.sb-logo img{width:40px;height:40px;object-fit:contain}
+.sb-team.away .sb-team-info{text-align:right}
+.sb-name{font-size:.9375rem;font-weight:700;color:var(--scoreboard-text)}
+.sb-record{font-family:var(--mono);font-size:.6875rem;color:var(--scoreboard-dim);margin-top:1px}
+.sb-center{display:flex;flex-direction:column;align-items:center;gap:8px}
+.sb-score{font-family:var(--mono);font-size:3.75rem;font-weight:700;color:var(--scoreboard-text);letter-spacing:-.02em;display:flex;align-items:baseline;gap:14px;line-height:1;text-shadow:0 4px 12px rgba(0,0,0,0.3)}
+.sb-dash{font-size:2rem;color:var(--scoreboard-dim);font-weight:400;opacity:.5}
+.sb-status-badge{font-family:var(--mono);font-size:.75rem;font-weight:700;color:#fff;padding:5px 14px;background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.3);border-radius:20px;display:flex;align-items:center;gap:6px;text-transform:uppercase;letter-spacing:.04em}
+.sb-status-badge.pre{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.15);color:var(--scoreboard-dim)}
+.sb-status-badge.final{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.15);color:var(--scoreboard-dim)}
+@keyframes pulse{0%{transform:scale(.95);box-shadow:0 0 0 0 rgba(239,68,68,0.7)}70%{transform:scale(1);box-shadow:0 0 0 6px rgba(239,68,68,0)}100%{transform:scale(.95);box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--live-pulse);animation:pulse 2s infinite}
+.strip-container{background:rgba(0,0,0,0.3);border-top:1px solid rgba(255,255,255,0.05);position:relative;z-index:1}
+.market-strip{padding:12px 32px;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,0.04)}
+.market-pill{font-family:var(--mono);font-size:.75rem;color:var(--scoreboard-dim);display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.05);padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.05)}
+.mp-label{font-weight:600;color:rgba(255,255,255,0.5);text-transform:uppercase;font-size:.625rem;letter-spacing:.04em}
+.mp-value{font-weight:700;color:#fff}
+.mp-dim{color:var(--scoreboard-dim);font-weight:500}
+.mp-sep{opacity:.3}
+.prob-row-label{font-family:var(--mono);font-size:.5625rem;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.06em;padding:0 32px 4px}
+.prob-row{padding:10px 32px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,0.04)}
+.prob-label{font-family:var(--mono);font-size:.6875rem;font-weight:600;color:var(--scoreboard-dim);min-width:55px}
+.prob-label.right{text-align:right}
+.prob-label strong{color:#fff}
+.prob-track{flex:1;height:5px;border-radius:3px;background:rgba(0,0,0,0.4);overflow:hidden;display:flex;border:1px solid rgba(255,255,255,0.05)}
+.prob-fill-home{height:100%;background:#006BB6;border-right:2px solid #111216}
+.prob-fill-away{height:100%;background:#98002E}
+.last-play-row{padding:10px 32px;display:flex;align-items:center;gap:10px}
+.lp-icon{width:20px;height:20px;object-fit:contain;flex-shrink:0}
+.lp-text{font-family:var(--sans);font-size:.8125rem;color:var(--scoreboard-dim);flex:1}
+.lp-text strong{color:var(--scoreboard-text);font-weight:600}
+.lp-clock{font-family:var(--mono);font-size:.6875rem;font-weight:600;color:var(--scoreboard-dim);white-space:nowrap}
+.tabs{max-width:940px;margin:16px auto 0;padding:0 20px;display:flex;gap:8px;border-bottom:2px solid var(--border);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab-btn{position:relative;font-family:var(--mono);font-size:.8125rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-secondary);padding:12px 16px;border:none;background:transparent;cursor:pointer;transition:color .2s;white-space:nowrap;outline:none}
+.tab-btn:hover{color:var(--text-primary)}
+.tab-btn::after{content:'';position:absolute;bottom:-1px;left:0;width:100%;height:2px;background:var(--text-primary);transform:scaleX(0);transition:transform .2s}
+.tab-btn.active{color:var(--text-primary)}
+.tab-btn.active::after{transform:scaleX(1)}
+.content{max-width:940px;margin:0 auto;padding:24px 20px 80px}
+.pane{display:none;opacity:0}
+.pane.active{display:block;animation:fadeIn .4s ease forwards}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.section-header{font-family:var(--serif);font-size:1.25rem;font-weight:600;color:var(--text-primary);margin:32px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--text-primary)}
+.section-header:first-child{margin-top:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.02);overflow:hidden;margin-bottom:24px}
+.table-responsive{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.data-table{width:100%;border-collapse:collapse;min-width:500px}
+.data-table th{font-family:var(--mono);font-size:.6875rem;font-weight:600;text-transform:uppercase;color:var(--text-tertiary);padding:12px 16px;text-align:center;border-bottom:1px solid var(--border);background:var(--surface-warm)}
+.data-table th:first-child{text-align:left}
+.data-table td{font-family:var(--mono);font-size:.8125rem;color:var(--text-secondary);padding:12px 16px;text-align:center;border-bottom:1px solid var(--border);transition:background .15s}
+.data-table td:first-child{text-align:left;font-family:var(--sans);font-weight:600;color:var(--text-primary)}
+.data-table tr:hover td{background:var(--surface-warm)}
+.data-table tr:last-child td{border-bottom:none}
+.data-table .highlight{font-weight:700;color:var(--text-primary);font-size:.9375rem}
+.leaders-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:32px}
+.leader-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.02)}
+.leader-team{font-family:var(--mono);font-size:.6875rem;font-weight:600;text-transform:uppercase;color:var(--text-tertiary);margin-bottom:16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);padding-bottom:12px}
+.leader-team img{width:20px;height:20px;object-fit:contain}
+.leader-row{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.leader-row:last-child{border-bottom:none;padding-bottom:0}
+.leader-avatar{width:40px;height:40px;border-radius:50%;background:#F0F0EA;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:1px solid var(--border)}
+.leader-avatar img{width:100%;height:100%;object-fit:cover}
+.leader-info{flex:1}
+.leader-name{font-size:.875rem;font-weight:600;color:var(--text-primary)}
+.leader-detail{font-family:var(--mono);font-size:.6875rem;color:var(--text-tertiary);margin-top:2px}
+.leader-stat{font-family:var(--mono);font-size:1.125rem;font-weight:700;color:var(--text-primary);background:var(--surface-warm);padding:4px 12px;border-radius:6px}
+.prop-list{display:flex;flex-direction:column;gap:16px;margin-bottom:32px}
+.prop-item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.02)}
+.prop-header{display:flex;align-items:center;gap:16px;border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:16px}
+.prop-player-img{width:48px;height:48px;border-radius:50%;background:var(--surface-warm);object-fit:cover;border:1px solid var(--border)}
+.prop-player-name{font-size:1.0625rem;font-weight:700;color:var(--text-primary)}
+.prop-player-team{font-family:var(--mono);font-size:.75rem;color:var(--text-tertiary);margin-top:2px}
+.prop-market-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px}
+.prop-stat-box{background:var(--surface-warm);border:1px solid var(--border);border-radius:8px;padding:16px}
+.prop-stat-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.prop-stat-label{font-family:var(--mono);font-size:.75rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase}
+.prop-stat-line{font-family:var(--mono);font-size:.75rem;color:var(--text-tertiary)}
+.prop-stat-line strong{color:var(--text-primary)}
+.prop-bar-bg{height:6px;background:#E5E5DF;border-radius:3px;overflow:hidden;margin-bottom:12px}
+.prop-bar-fill{height:100%;background:var(--text-primary);border-radius:3px;transition:width 1s ease}
+.prop-bar-fill.over{background:var(--success)}
+.prop-stat-footer{display:flex;justify-content:space-between;align-items:center}
+.prop-live-val{font-family:var(--mono);font-size:1.25rem;font-weight:700;color:var(--text-primary)}
+.prop-odds{font-family:var(--mono);font-size:.6875rem;color:var(--text-tertiary)}
+.timeline-period{margin-bottom:24px}
+.period-divider{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+.period-divider::before,.period-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.period-badge{font-family:var(--mono);font-size:.75rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;background:var(--surface-warm);padding:6px 16px;border-radius:16px;border:1px solid var(--border)}
+.play-list{position:relative;padding-left:20px}
+.play-list::before{content:'';position:absolute;left:35px;top:10px;bottom:10px;width:2px;background:var(--border);z-index:0}
+.play-item{display:flex;align-items:flex-start;gap:16px;padding:10px 0;position:relative;z-index:1}
+.play-clock{font-family:var(--mono);font-size:.8125rem;font-weight:700;color:var(--text-tertiary);width:40px;text-align:right;margin-top:6px}
+.play-icon-wrap{width:32px;height:32px;border-radius:50%;background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 2px 4px rgba(0,0,0,0.05)}
+.play-icon-wrap img{width:20px;height:20px;object-fit:contain}
+.play-content{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.02)}
+.play-text{font-size:.9375rem;color:var(--text-secondary);line-height:1.4}
+.play-text strong{color:var(--text-primary);font-weight:600}
+.play-score{font-family:var(--mono);font-size:.75rem;font-weight:700;color:var(--text-primary);display:inline-block;background:var(--surface-warm);padding:3px 8px;border-radius:4px;border:1px solid var(--border);margin-top:6px}
+.odds-best{font-weight:700;color:var(--success);background:var(--success-bg);padding:4px 8px;border-radius:4px;display:inline-block}
+.loading-msg{text-align:center;padding:60px 20px;color:var(--text-tertiary);font-family:var(--mono);font-size:.875rem}
+.error-msg{text-align:center;padding:60px 20px;color:var(--danger);font-family:var(--mono);font-size:.875rem}
+footer{max-width:940px;margin:0 auto;padding:24px 20px 48px;border-top:1px solid var(--border)}
+footer p{font-family:var(--mono);font-size:.75rem;color:var(--text-tertiary)}
+@media(max-width:768px){
+.scoreboard-card{border-radius:0}
+.sb-main{flex-direction:column;gap:12px;padding:12px 16px}
+.sb-center{order:-1}
+.sb-team{width:100%;justify-content:center !important}
+.sb-team.away{flex-direction:row-reverse}
+.sb-team.away .sb-team-info{text-align:left}
+.sb-score{font-size:2.75rem}
+.sb-logo{width:44px;height:44px}
+.sb-logo img{width:32px;height:32px}
+.market-strip,.prob-row,.last-play-row,.prob-row-label{padding-left:16px;padding-right:16px}
+.prop-market-grid{grid-template-columns:1fr}
+.play-list::before{left:15px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="nav-bar">
+    <div style="display:flex;align-items:center;gap:20px;">
+      <a href="/" class="wordmark">The Drip</a>
+      <a href="/hub" class="back-link">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        Scores
+      </a>
+    </div>
+    <div id="refresh-indicator" style="font-family:var(--mono);font-size:.6875rem;color:var(--text-tertiary)"></div>
+  </div>
+</header>
+
+<div class="scoreboard">
+  <div class="scoreboard-card">
+    <div class="sb-identity">
+      <span id="sb-league">NBA</span>
+      <span id="sb-venue" class="sb-identity-venue"></span>
+    </div>
+    <div class="sb-main">
+      <div class="sb-team away">
+        <div class="sb-team-info">
+          <div class="sb-name" id="away-name">--</div>
+          <div class="sb-record" id="away-record"></div>
+        </div>
+        <div class="sb-logo"><img id="away-logo" src="" alt=""></div>
+      </div>
+      <div class="sb-center">
+        <div class="sb-score">
+          <span id="away-score">--</span><span class="sb-dash">&ndash;</span><span id="home-score">--</span>
+        </div>
+        <div class="sb-status-badge pre" id="status-badge">
+          <span class="live-dot" id="live-dot" style="display:none"></span>
+          <span id="status-text">Loading...</span>
+        </div>
+      </div>
+      <div class="sb-team">
+        <div class="sb-logo"><img id="home-logo" src="" alt=""></div>
+        <div class="sb-team-info">
+          <div class="sb-name" id="home-name">--</div>
+          <div class="sb-record" id="home-record"></div>
+        </div>
+      </div>
+    </div>
+    <div class="strip-container">
+      <div class="market-strip" id="market-strip">
+        <div class="market-pill"><span class="mp-label">Spread</span><span class="mp-value" id="mkt-spread">--</span></div>
+        <div class="market-pill"><span class="mp-label">Total</span><span class="mp-value" id="mkt-total">--</span></div>
+        <div class="market-pill"><span class="mp-label">ML</span><span class="mp-value" id="mkt-ml">--</span></div>
+      </div>
+      <div class="prob-row-label">Live Win Probability</div>
+      <div class="prob-row">
+        <span class="prob-label" id="prob-away">-- <strong>--</strong></span>
+        <div class="prob-track">
+          <div class="prob-fill-home" id="prob-home-bar" style="width:50%"></div>
+          <div class="prob-fill-away" id="prob-away-bar" style="width:50%"></div>
+        </div>
+        <span class="prob-label right" id="prob-home"><strong>--</strong> --</span>
+      </div>
+      <div class="last-play-row" id="last-play-row">
+        <span class="lp-text" id="last-play-text">Waiting for data...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs" role="tablist">
+  <button class="tab-btn active" role="tab" data-target="pane-game">Box Score</button>
+  <button class="tab-btn" role="tab" data-target="pane-props">Live Props</button>
+  <button class="tab-btn" role="tab" data-target="pane-plays">Play-by-Play</button>
+  <button class="tab-btn" role="tab" data-target="pane-odds">Compare Odds</button>
+</div>
+
+<div class="content">
+  <div id="pane-game" class="pane active" role="tabpanel">
+    <div class="section-header">Quarter Scores</div>
+    <div class="card"><div class="table-responsive"><table class="data-table" id="quarter-table">
+      <thead><tr><th>Team</th><th>1</th><th>2</th><th>3</th><th>4</th><th>OT</th><th>T</th></tr></thead>
+      <tbody id="quarter-body"><tr><td colspan="7" class="loading-msg">Loading...</td></tr></tbody>
+    </table></div></div>
+    <div class="section-header">Game Leaders</div>
+    <div class="leaders-grid" id="leaders-grid"><div class="loading-msg">Loading...</div></div>
+  </div>
+
+  <div id="pane-props" class="pane" role="tabpanel">
+    <div class="prop-list" id="props-list"><div class="loading-msg">Loading props...</div></div>
+  </div>
+
+  <div id="pane-plays" class="pane" role="tabpanel">
+    <div id="plays-container"><div class="loading-msg">Loading plays...</div></div>
+  </div>
+
+  <div id="pane-odds" class="pane" role="tabpanel">
+    <div class="section-header">Live Market Comparisons</div>
+    <div class="card"><div class="table-responsive"><table class="data-table" id="odds-table">
+      <thead><tr><th>Sportsbook</th><th>Spread</th><th>Total</th><th>Home ML</th><th>Away ML</th></tr></thead>
+      <tbody id="odds-body"><tr><td colspan="5" class="loading-msg">Loading...</td></tr></tbody>
+    </table></div></div>
+    <div class="section-header" style="margin-top:32px;">Line Movement</div>
+    <div class="card"><div class="table-responsive"><table class="data-table" id="movement-table">
+      <thead><tr><th>Market</th><th>Opening</th><th>Current</th><th>Move</th></tr></thead>
+      <tbody id="movement-body"><tr><td colspan="4" class="loading-msg">Loading...</td></tr></tbody>
+    </table></div></div>
+  </div>
+</div>
+
+<footer><p>Live stats updated every 30s. Odds via DraftKings. &copy; 2026 The Drip</p></footer>
+<script>
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const gameId = params.get('gameId');
+  if (!gameId) {
+    document.querySelector('.content').innerHTML = '<div class="error-msg">No gameId provided. Usage: /live?gameId=401584790</div>';
+    document.getElementById('status-text').textContent = 'No Game';
+    return;
+  }
+
+  let homeTeamId = '', awayTeamId = '', homeAbbrev = '', awayAbbrev = '';
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(function(t) { t.classList.remove('active'); });
+      document.querySelectorAll('.pane').forEach(function(p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      var target = document.getElementById(tab.getAttribute('data-target'));
+      if (target) target.classList.add('active');
+    });
+  });
+
+  function espnLogo(teamId) {
+    return 'https://a.espncdn.com/i/teamlogos/nba/500/' + teamId + '.png';
+  }
+  function espnHeadshot(athleteId) {
+    return 'https://a.espncdn.com/i/headshots/nba/players/full/' + athleteId + '.png';
+  }
+  function fmtOdds(n) {
+    if (n == null) return '--';
+    return n > 0 ? '+' + n : '' + n;
+  }
+
+  function updateScoreboard(espn, supaData) {
+    var comp = espn && espn.header && espn.header.competitions && espn.header.competitions[0];
+    if (!comp) return;
+
+    var status = comp.status || {};
+    var statusType = status.type || {};
+    var clock = status.displayClock || '';
+    var period = status.period || 0;
+    var statusDesc = statusType.description || '';
+    var statusState = statusType.state || '';
+
+    // Teams
+    var competitors = comp.competitors || [];
+    var home = competitors.find(function(c) { return c.homeAway === 'home'; }) || competitors[0] || {};
+    var away = competitors.find(function(c) { return c.homeAway === 'away'; }) || competitors[1] || {};
+
+    homeTeamId = home.id || '';
+    awayTeamId = away.id || '';
+    homeAbbrev = (home.team && home.team.abbreviation) || '';
+    awayAbbrev = (away.team && away.team.abbreviation) || '';
+
+    document.getElementById('home-name').textContent = (home.team && home.team.shortDisplayName) || '--';
+    document.getElementById('away-name').textContent = (away.team && away.team.shortDisplayName) || '--';
+    document.getElementById('home-record').textContent = (home.record && home.record[0] && home.record[0].displayValue) || '';
+    document.getElementById('away-record').textContent = (away.record && away.record[0] && away.record[0].displayValue) || '';
+    document.getElementById('home-score').textContent = home.score || '0';
+    document.getElementById('away-score').textContent = away.score || '0';
+
+    if (homeTeamId) document.getElementById('home-logo').src = espnLogo(homeTeamId);
+    if (awayTeamId) document.getElementById('away-logo').src = espnLogo(awayTeamId);
+
+    // Status badge
+    var badge = document.getElementById('status-badge');
+    var dot = document.getElementById('live-dot');
+    var statusEl = document.getElementById('status-text');
+    badge.className = 'sb-status-badge';
+    if (statusState === 'in') {
+      badge.classList.add('live');
+      dot.style.display = 'block';
+      dot.className = 'live-dot';
+      var periodNames = ['', '1st', '2nd', '3rd', '4th'];
+      var pName = period <= 4 ? (periodNames[period] || period + 'th') : 'OT' + (period - 4 > 1 ? period - 4 : '');
+      statusEl.textContent = clock + ' \u00b7 ' + pName;
+    } else if (statusState === 'post') {
+      badge.classList.add('final');
+      dot.style.display = 'none';
+      statusEl.textContent = statusDesc || 'Final';
+    } else {
+      badge.classList.add('pre');
+      dot.style.display = 'none';
+      statusEl.textContent = statusDesc || 'Scheduled';
+    }
+
+    // Venue
+    var venue = comp.venue;
+    if (venue) {
+      document.getElementById('sb-venue').textContent = (venue.fullName || '') + (venue.address && venue.address.city ? ', ' + venue.address.city : '');
+    }
+
+    // Title
+    document.title = awayAbbrev + ' ' + (away.score || 0) + ' - ' + (home.score || 0) + ' ' + homeAbbrev + ' | The Drip';
+  }
+
+  function updateMarkets(supaData) {
+    if (!supaData) return;
+    var odds = supaData.odds || {};
+    var spread = odds.spread;
+    var total = odds.total;
+    var homeML = supaData.home && supaData.home.ml;
+    var awayML = supaData.away && supaData.away.ml;
+
+    if (spread != null) {
+      var spreadStr = spread > 0 ? (awayAbbrev + ' -' + Math.abs(spread)) : (homeAbbrev + ' -' + Math.abs(spread));
+      document.getElementById('mkt-spread').textContent = spreadStr;
+    }
+    if (total != null) document.getElementById('mkt-total').textContent = 'O/U ' + total;
+    if (homeML != null || awayML != null) {
+      document.getElementById('mkt-ml').innerHTML = homeAbbrev + ' ' + fmtOdds(homeML) + ' <span class="mp-sep">|</span> <span class="mp-dim">' + awayAbbrev + ' ' + fmtOdds(awayML) + '</span>';
+    }
+
+    // Win probability
+    var wp = odds.win_probability;
+    if (wp) {
+      var homeWP = wp.home || wp.homeWinPercentage || 50;
+      var awayWP = wp.away || wp.awayWinPercentage || 50;
+      if (homeWP <= 1) { homeWP = Math.round(homeWP * 100); awayWP = Math.round(awayWP * 100); }
+      document.getElementById('prob-away').innerHTML = awayAbbrev + ' <strong>' + awayWP + '%</strong>';
+      document.getElementById('prob-home').innerHTML = '<strong>' + homeWP + '%</strong> ' + homeAbbrev;
+      document.getElementById('prob-home-bar').style.width = awayWP + '%';
+      document.getElementById('prob-away-bar').style.width = homeWP + '%';
+    }
+  }
+
+  function updateQuarterScores(espn) {
+    var comp = espn && espn.header && espn.header.competitions && espn.header.competitions[0];
+    if (!comp) return;
+    var competitors = comp.competitors || [];
+    var home = competitors.find(function(c) { return c.homeAway === 'home'; }) || {};
+    var away = competitors.find(function(c) { return c.homeAway === 'away'; }) || {};
+
+    function buildRow(team) {
+      var name = (team.team && team.team.displayName) || '--';
+      var ls = team.linescores || [];
+      var html = '<td>' + name + '</td>';
+      for (var i = 0; i < 4; i++) html += '<td>' + (ls[i] ? ls[i].displayValue || ls[i].value || '--' : '--') + '</td>';
+      var ot = '';
+      for (var j = 4; j < ls.length; j++) ot += (ot ? '+' : '') + (ls[j].displayValue || ls[j].value || '');
+      html += '<td>' + (ot || '--') + '</td>';
+      html += '<td class="highlight">' + (team.score || '0') + '</td>';
+      return '<tr>' + html + '</tr>';
+    }
+
+    document.getElementById('quarter-body').innerHTML = buildRow(away) + buildRow(home);
+  }
+
+  function updateLeaders(espn) {
+    var leaders = espn && espn.leaders;
+    if (!leaders || !leaders.length) return;
+    var html = '';
+    leaders.forEach(function(teamLeaders) {
+      var cats = teamLeaders.leaders || [];
+      var teamInfo = teamLeaders.team || {};
+      var teamId = teamInfo.id || '';
+      var teamName = teamInfo.shortDisplayName || teamInfo.displayName || '--';
+      html += '<div class="leader-card">';
+      html += '<div class="leader-team"><img src="' + espnLogo(teamId) + '" alt=""> ' + teamName + '</div>';
+      // Show points leaders
+      var pointsCat = cats.find(function(c) { return c.name === 'points' || c.abbreviation === 'PTS'; });
+      if (pointsCat && pointsCat.leaders) {
+        pointsCat.leaders.slice(0, 3).forEach(function(l) {
+          var athlete = l.athlete || {};
+          var athleteId = athlete.id || '';
+          var displayName = athlete.displayName || '--';
+          var statLine = l.displayValue || '';
+          var pts = statLine.split(',')[0] || l.value || '';
+          var detail = statLine.split(',').slice(1).join(',').trim();
+          html += '<div class="leader-row">';
+          html += '<div class="leader-avatar"><img src="' + espnHeadshot(athleteId) + '" alt=""></div>';
+          html += '<div class="leader-info"><div class="leader-name">' + displayName + '</div><div class="leader-detail">' + detail + '</div></div>';
+          html += '<div class="leader-stat">' + pts + '</div>';
+          html += '</div>';
+        });
+      }
+      html += '</div>';
+    });
+    document.getElementById('leaders-grid').innerHTML = html;
+  }
+
+  function updatePlays(espn) {
+    var plays = espn && espn.plays;
+    if (!plays || !plays.length) {
+      document.getElementById('plays-container').innerHTML = '<div class="loading-msg">No plays available yet</div>';
+      return;
+    }
+    // Group by period, reverse chronological
+    var byPeriod = {};
+    plays.forEach(function(p) {
+      var per = p.period && p.period.number || 0;
+      if (!byPeriod[per]) byPeriod[per] = [];
+      byPeriod[per].push(p);
+    });
+
+    var periodNames = {1:'1st Quarter',2:'2nd Quarter',3:'3rd Quarter',4:'4th Quarter'};
+    var html = '';
+    var periods = Object.keys(byPeriod).sort(function(a,b){return b-a;});
+    periods.forEach(function(per) {
+      var pName = periodNames[per] || (per > 4 ? 'OT' + (per-4 > 1 ? ' '+(per-4) : '') : 'Period ' + per);
+      html += '<div class="timeline-period"><div class="period-divider"><span class="period-badge">' + pName + '</span></div><div class="play-list">';
+      var sorted = byPeriod[per].sort(function(a,b) {
+        var ca = a.clock && a.clock.displayValue || '0:00';
+        var cb = b.clock && b.clock.displayValue || '0:00';
+        return ca < cb ? 1 : -1;
+      });
+      sorted.slice(-20).reverse().forEach(function(p) {
+        var clock = (p.clock && p.clock.displayValue) || '';
+        var text = p.text || '';
+        var teamId = (p.team && p.team.id) || '';
+        var sc = p.homeScore != null ? (awayAbbrev + ' ' + p.awayScore + ' \u2013 ' + p.homeScore + ' ' + homeAbbrev) : '';
+        var scoring = p.scoringPlay;
+        html += '<div class="play-item">';
+        html += '<div class="play-clock">' + clock + '</div>';
+        html += '<div class="play-icon-wrap">' + (teamId ? '<img src="' + espnLogo(teamId) + '" alt="">' : '') + '</div>';
+        html += '<div class="play-content"' + (scoring ? ' style="border-left:4px solid var(--success)"' : '') + '>';
+        html += '<div class="play-text">' + text + '</div>';
+        if (sc) html += '<div class="play-score">' + sc + '</div>';
+        html += '</div></div>';
+      });
+      html += '</div></div>';
+    });
+
+    // Last play for ticker
+    var lastPlay = plays[plays.length - 1];
+    if (lastPlay) {
+      var lpTeamId = (lastPlay.team && lastPlay.team.id) || '';
+      var lpClock = (lastPlay.clock && lastPlay.clock.displayValue) || '';
+      var lpPer = lastPlay.period && lastPlay.period.number || '';
+      var lpPName = {1:'Q1',2:'Q2',3:'Q3',4:'Q4'}[lpPer] || 'OT';
+      var lpRow = document.getElementById('last-play-row');
+      lpRow.innerHTML = (lpTeamId ? '<img class="lp-icon" src="' + espnLogo(lpTeamId) + '" alt="">' : '') +
+        '<span class="lp-text">' + (lastPlay.text || '') + '</span>' +
+        '<span class="lp-clock">' + lpClock + ' \u00b7 ' + lpPName + '</span>';
+    }
+
+    document.getElementById('plays-container').innerHTML = html;
+  }
+
+  function updateProps(supaData) {
+    var props = supaData && supaData.props;
+    if (!props || !props.length) {
+      document.getElementById('props-list').innerHTML = '<div class="loading-msg">No props available for this game</div>';
+      return;
+    }
+    var html = '';
+    props.forEach(function(player) {
+      html += '<div class="prop-item"><div class="prop-header">';
+      html += '<img class="prop-player-img" src="' + (player.headshot || '') + '" alt="" onerror="this.style.display=\'none\'">';
+      html += '<div><div class="prop-player-name">' + player.name + '</div>';
+      html += '<div class="prop-player-team">' + (player.team || '') + '</div></div></div>';
+      html += '<div class="prop-market-grid">';
+      (player.markets || []).forEach(function(m) {
+        var label = (m.type || '').replace(/_/g,' ').replace(/\b\w/g, function(c){return c.toUpperCase();});
+        html += '<div class="prop-stat-box">';
+        html += '<div class="prop-stat-header"><span class="prop-stat-label">' + label + '</span>';
+        html += '<span class="prop-stat-line">O/U <strong>' + m.line + '</strong></span></div>';
+        html += '<div class="prop-bar-bg"><div class="prop-bar-fill" style="width:50%"></div></div>';
+        html += '<div class="prop-stat-footer"><span class="prop-odds">' + fmtOdds(m.odds) + '</span></div>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    });
+    document.getElementById('props-list').innerHTML = html;
+  }
+
+  function updateOdds(supaData) {
+    var books = supaData && supaData.bookmakers;
+    if (!books || !books.length) {
+      document.getElementById('odds-body').innerHTML = '<tr><td colspan="5" class="loading-msg">No odds data available</td></tr>';
+      return;
+    }
+    // Find best values
+    var bestHomeML = Math.max.apply(null, books.map(function(b){return b.moneyline_home||(-9999);}));
+    var bestAwayML = Math.max.apply(null, books.map(function(b){return b.moneyline_away||(-9999);}));
+
+    var html = '';
+    books.forEach(function(b) {
+      html += '<tr><td>' + b.name + '</td>';
+      html += '<td>' + (b.spread_home != null ? homeAbbrev + ' ' + b.spread_home : '--') + '</td>';
+      html += '<td>' + (b.total != null ? b.total : '--') + '</td>';
+      html += '<td>' + (b.moneyline_home != null ? (b.moneyline_home === bestHomeML ? '<span class="odds-best">' + fmtOdds(b.moneyline_home) + '</span>' : fmtOdds(b.moneyline_home)) : '--') + '</td>';
+      html += '<td>' + (b.moneyline_away != null ? (b.moneyline_away === bestAwayML ? '<span class="odds-best">' + fmtOdds(b.moneyline_away) + '</span>' : fmtOdds(b.moneyline_away)) : '--') + '</td>';
+      html += '</tr>';
+    });
+    document.getElementById('odds-body').innerHTML = html;
+
+    // Line movement
+    var odds = supaData.odds || {};
+    var opening = odds.opening || {};
+    var current = odds.current || {};
+    var mvHtml = '';
+    if (opening.spread != null || current.spread != null) {
+      mvHtml += '<tr><td>Spread</td><td>' + (opening.spread != null ? homeAbbrev + ' ' + opening.spread : '--') + '</td>';
+      mvHtml += '<td>' + (odds.spread != null ? homeAbbrev + ' ' + odds.spread : '--') + '</td>';
+      var sm = (odds.spread || 0) - (opening.spread || 0);
+      mvHtml += '<td style="font-family:var(--mono);font-size:.75rem;font-weight:600;color:' + (sm !== 0 ? (sm < 0 ? 'var(--success)' : 'var(--danger)') : 'var(--text-tertiary)') + '">' + (sm > 0 ? '\u2191 ' : sm < 0 ? '\u2193 ' : '') + Math.abs(sm).toFixed(1) + ' pts</td></tr>';
+    }
+    if (opening.total != null || odds.total != null) {
+      mvHtml += '<tr><td>Total</td><td>' + (opening.total || '--') + '</td>';
+      mvHtml += '<td>' + (odds.total || '--') + '</td>';
+      var tm = (odds.total || 0) - (opening.total || 0);
+      mvHtml += '<td style="font-family:var(--mono);font-size:.75rem;font-weight:600;color:' + (tm !== 0 ? (tm > 0 ? 'var(--success)' : 'var(--danger)') : 'var(--text-tertiary)') + '">' + (tm > 0 ? '\u2191 ' : tm < 0 ? '\u2193 ' : '') + Math.abs(tm).toFixed(1) + ' pts</td></tr>';
+    }
+    document.getElementById('movement-body').innerHTML = mvHtml || '<tr><td colspan="4" class="loading-msg">No movement data</td></tr>';
+  }
+
+  function fetchAll() {
+    var espnUrl = '/api/espn-proxy?endpoint=' + encodeURIComponent('basketball/nba/summary?event=' + gameId);
+    var supaUrl = '/api/live/page-data?gameId=' + gameId;
+
+    Promise.all([
+      fetch(espnUrl).then(function(r){return r.ok ? r.json() : null;}).catch(function(){return null;}),
+      fetch(supaUrl).then(function(r){return r.ok ? r.json() : null;}).catch(function(){return null;})
+    ]).then(function(results) {
+      var espn = results[0];
+      var supa = results[1];
+
+      if (espn) {
+        updateScoreboard(espn, supa);
+        updateQuarterScores(espn);
+        updateLeaders(espn);
+        updatePlays(espn);
+      }
+      if (supa) {
+        updateMarkets(supa);
+        updateProps(supa);
+        updateOdds(supa);
+      }
+      if (!espn && !supa) {
+        document.getElementById('status-text').textContent = 'Error loading';
+        document.getElementById('status-badge').className = 'sb-status-badge final';
+      }
+      document.getElementById('refresh-indicator').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    });
+  }
+
+  fetchAll();
+  setInterval(fetchAll, 30000);
+})();
+</script>
+</body>
+</html>
