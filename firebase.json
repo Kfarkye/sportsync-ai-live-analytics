@@ -60,6 +60,10 @@
         "destination": "/hub.html"
       },
       {
+        "source": "/live",
+        "destination": "/live.html"
+      },
+      {
         "source": "**",
         "destination": "/app.html"
       }
