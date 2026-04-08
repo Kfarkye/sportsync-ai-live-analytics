@@ -1154,7 +1154,7 @@ async function snapshotPhase(
   if (eventTickersOverride.length > 0) {
     const { data } = await supabase
       .from("kalshi_events_active")
-      .select("event_ticker,sport,league,game_date,market_tickers,status")
+      .select("event_ticker,sport,league,game_date,market_tickers,status,home_team,away_team,title")
       .in("event_ticker", eventTickersOverride);
 
     eventRows = data || [];
@@ -1196,7 +1196,7 @@ async function snapshotPhase(
   } else {
     const { data, error } = await supabase
       .from("kalshi_events_active")
-      .select("event_ticker,sport,league,game_date,market_tickers,status")
+      .select("event_ticker,sport,league,game_date,market_tickers,status,home_team,away_team,title")
       .eq("status", "active")
       .limit(500);
 

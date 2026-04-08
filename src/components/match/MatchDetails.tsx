@@ -1136,7 +1136,21 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
           const newAway = socketFresh ? prev.awayScore : Math.max(espn.awayScore ?? prev.awayScore ?? 0, prev.awayScore ?? 0);
 
           const newStats = espn.stats || (espn as any).statistics;
-          if (hashPayload(prev.stats) === hashPayload(newStats) && prev.homeScore === newHome && prev.awayScore === newAway && prev.status === espn.status) {
+          const newOdds = espn.odds;
+          const newLeaders = espn.leaders;
+          const newEvents = espn.events;
+          const newPlayerStats = espn.playerStats;
+
+          // Change detection: check ALL fields the proxy returns, not just stats/score
+          const statsMatch = hashPayload(prev.stats) === hashPayload(newStats);
+          const scoreMatch = prev.homeScore === newHome && prev.awayScore === newAway;
+          const statusMatch = prev.status === espn.status;
+          const oddsMatch = hashPayload(prev.odds) === hashPayload(newOdds);
+          const leadersMatch = hashPayload(prev.leaders) === hashPayload(newLeaders);
+          const eventsMatch = hashPayload(prev.events) === hashPayload(newEvents);
+          const playerStatsMatch = hashPayload(prev.playerStats) === hashPayload(newPlayerStats);
+
+          if (statsMatch && scoreMatch && statusMatch && oddsMatch && leadersMatch && eventsMatch && playerStatsMatch) {
             return prev;
           }
 
@@ -1146,6 +1160,8 @@ function useMatchPolling(initialMatch: ExtendedMatch) {
             ...prev,
             ...(espn as Partial<ExtendedMatch>),
             stats,
+            // Promote ESPN odds to current_odds when DB has nothing
+            current_odds: prev.current_odds?.hasOdds ? prev.current_odds : (newOdds?.hasOdds ? newOdds : prev.current_odds),
             homeScore: newHome,
             awayScore: newAway,
             edge_tags: (espn as Partial<ExtendedMatch>).edge_tags || prev.edge_tags
